@@ -3,104 +3,177 @@
 #include <stdio.h>
 #include <string.h>
 
+#define u1 unsigned char
+#define u2 unsigned short
+#define u4 unsigned int
+#define u8 unsigned long long
+
 void **head;
 
-int sub_up(int x, int by)
+u2 block_size(void* now)
 {
-    if(x%by == 0)
-        return x/by;
-    return x/by + 1;
+    if(*((char *) now - 1) & 0x80)
+        return *((u2 *) now - 1) & (u2) 0x7fff;
+    else
+        return (u2) *((char *) now - 1);
 }
 
 int memory_check(void *ptr)
 {
-    void** now = head;
-    while(*now != NULL)
+    void **now = *head;
+    void **tmp = NULL;
+    while(now != NULL)
     {
-        if(*now == ptr)
-            return 0;
+        if(ptr < (void *)now)
+        {
+            if(tmp == NULL)
+                return 1;
+            if(ptr > (void *)((char *) tmp + block_size(tmp)))
+                return 1;
+        }
+        tmp = now;
         now = *now;
     }
-    return 1;
+    return 0;
 }
 
 void *memory_alloc(unsigned int size)
 {
-    void** now = *head;
-    void** tmp = head;
-    void** result = NULL;
-    int i;
-
+    void **tmp = head;
+    void **now = *head;
+    void **result;
+    void **next;
+    u2 avbl, avbl_new;
     while(now != NULL)
     {
-        for(i=1; i<sub_up(size, 8) && *now!=NULL; i++)
+        //todo prepojenie blokov pre vacsiu avbl velkost
+        if(*((char *) now - 1) & 0x80)
+            avbl = *((u2 *) now - 1) & (u2) 0x7fff;
+        else
+            avbl = (u2) *((char *) now - 1);
+
+        if(avbl >= size)
         {
-            if(now+1 != *now)
-                break;
-            now = *now;
-        }
-        if(i == sub_up(size, 8))
-        {
-            result = *tmp;
-            *tmp = *now;
+            next = *now;
+            if(size < 0x80)
+            {
+                avbl_new = avbl - (u2)size + (u2)1;
+                //todo ak avbl-size nie je dostatocne na vytvorenie medzi bloku
+                if(avbl_new < 9)
+                {
+                    size = avbl;
+                    *tmp = next;
+                } else
+                {
+                    if(avbl_new < 0x80)
+                    {
+                        *tmp = (void **) ((char *) now + size);
+                        *((char *)(*tmp) - 1) = (char)avbl_new;
+                    } else
+                    {
+                        *tmp = (void **) ((char *) now + size + 1);
+                        *((u2 *)(*tmp) - 1) = avbl_new | (u2)0x8000;
+                    }
+                    **(void ***) (tmp) = next;
+                }
+
+                *((char *) now - 2) = (char) size;
+                result = (void **) ((char *) now - 1);
+
+            } else
+            {
+                avbl_new = avbl - (u2)size;
+                //todo ak avbl-size nie je dostatocne na vytvorenie medzi bloku
+                if(avbl_new < 9)
+                {
+                    size = avbl;
+                    *tmp = next;
+                } else
+                {
+                    if(avbl_new < 0x80)
+                    {
+                        *tmp = (void **) ((char *) now + size + 1);
+                        *((char *)(*tmp) - 1) = (char)avbl_new;
+                    } else
+                    {
+                        *tmp = (void **) ((char *) now + size + 2);
+                        *((u2 *)(*tmp) - 1) = avbl_new | (u2)0x8000;
+                    }
+                    **(void ***) (tmp) = next;
+                }
+
+                *((u2 *) now - 1) = (u2) size | (u2) 0x8000;
+                result = now;
+
+            }
             return result;
-        }
-        tmp = now;
-        now = *now;
+        } else
+            now = *now;
     }
     return NULL;
 }
 
 int memory_free(void *valid_ptr)
 {
-    void** now = head;
-    void** tmp;
-    while(now != NULL)
-    {
-        if(*now < valid_ptr)
-        {
-            now = *now;
-        }
-        else
-        {
-            tmp = *now;
-            *now = valid_ptr;
-            while(memory_check(*now+1))
-
-        }
-    }
     return 1;
 }
 
 void memory_init(void *ptr, unsigned int size)
 {
-    head = ptr;
-    void** now = head;
-    void** next = head+1;
+    head = (void **) ((char *) (ptr + 1));
+    void **now = *head = (void **) ((char *) ptr + 1);
+    void **tmp = now;
+    void **footer = ((void **) ((char *) ptr + size));
+    *footer = NULL;
 
-    for(int i=1; i<(size/8); i++) {
-        *now = next;
-        now = *now;
-        next++;
+    printf("diff: %u\n", (u4) ((char *) (footer) - (char *) now));
+
+    u8 ptr_diff;
+    while(now != NULL)
+    {
+        ptr_diff = ((char *) footer - (char *) now);
+        if(ptr_diff <= 0x7fff)
+        {
+            if(ptr_diff < 0x80)
+            {
+                *((char *) now - 1) = (char) ptr_diff;
+            } else
+            {
+                now = (void **) ((char *) now + 1);
+                *tmp = now;
+                *((u2 *) now - 1) = (u2) ((ptr_diff - 1) | 0x8000);
+            }
+            *now = NULL;
+            return;
+        } else
+        {
+            *((u2 *) now - 2) = (u2) 0x7fff;
+            *now = (u1 *) now + 0x8000;
+            tmp = now;
+            now = *now;
+        }
     }
-    *now = NULL;
 }
 
 // Vlastna funkcia main() je pre vase osobne testovanie. Dolezite: pri testovacich scenaroch sa nebude spustat!
 int main()
 {
     int x = 3;
-    char region[50];
-    memory_init(region, 50);
-    char* pointer = (char*) memory_alloc(x);
-    if (pointer)
+    int allc = 50;
+    unsigned char region[allc];
+    for(int i = 0; i < allc; i++)
+        region[i] = 120;
+
+    memory_init(region, allc);
+    char *pointer = (char *) memory_alloc(x);
+
+    if(pointer)
         memset(pointer, 120, x);
     else
         printf("Hello NULL\n");
-    printf("mem check: %d", memory_check(pointer));
-    if (pointer)
-        memory_free(pointer);
-    printf("Hello World\n");
-//    printf("ptr size: %d\n", sizeof(uintptr_t));
+
+    printf("mem check: %d\n", memory_check(pointer));
+//    if(pointer)
+//        memory_free(pointer);
     return 0;
 }
