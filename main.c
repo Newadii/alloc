@@ -12,6 +12,18 @@ int sub_up(int x, int by)
     return x/by + 1;
 }
 
+int memory_check(void *ptr)
+{
+    void** now = head;
+    while(*now != NULL)
+    {
+        if(*now == ptr)
+            return 0;
+        now = *now;
+    }
+    return 1;
+}
+
 void *memory_alloc(unsigned int size)
 {
     void** now = *head;
@@ -41,12 +53,23 @@ void *memory_alloc(unsigned int size)
 
 int memory_free(void *valid_ptr)
 {
-    return 0;
-}
+    void** now = head;
+    void** tmp;
+    while(now != NULL)
+    {
+        if(*now < valid_ptr)
+        {
+            now = *now;
+        }
+        else
+        {
+            tmp = *now;
+            *now = valid_ptr;
+            while(memory_check(*now+1))
 
-int memory_check(void *ptr)
-{
-    return 0;
+        }
+    }
+    return 1;
 }
 
 void memory_init(void *ptr, unsigned int size)
@@ -66,7 +89,7 @@ void memory_init(void *ptr, unsigned int size)
 // Vlastna funkcia main() je pre vase osobne testovanie. Dolezite: pri testovacich scenaroch sa nebude spustat!
 int main()
 {
-    int x = 32;
+    int x = 3;
     char region[50];
     memory_init(region, 50);
     char* pointer = (char*) memory_alloc(x);
@@ -74,8 +97,10 @@ int main()
         memset(pointer, 120, x);
     else
         printf("Hello NULL\n");
+    printf("mem check: %d", memory_check(pointer));
     if (pointer)
         memory_free(pointer);
     printf("Hello World\n");
+//    printf("ptr size: %d\n", sizeof(uintptr_t));
     return 0;
 }
