@@ -28,12 +28,14 @@ void *block_header(void *ptr, int size)
     return (char *)ptr + 3;
 }
 
-u2 block_size(void* now)
+u2 block_size(void* ptr)
 {
-    if(*((char *) now - 1) & 0x80)
-        return *((u2 *) now - 1) & (u2) 0x7fff;
+    if(*((char *) ptr - 1) & 0x80)
+        return *((u2 *) ptr - 1) & (u2) 0x7fff;
+    else if(*((char *) ptr - 1) != 0)
+        return (u2) *((char *) ptr - 1);
     else
-        return (u2) *((char *) now - 1);
+        return (u2) *((char *)ptr - 3);
 }
 
 int memory_check(void *ptr)
