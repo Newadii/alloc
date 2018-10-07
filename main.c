@@ -41,18 +41,21 @@ int memory_check(void *ptr)
 
 void *memory_alloc(unsigned int size)
 {
+    if(head == NULL)
+        return NULL;
     void **tmp = head;
     void **now = head;
     void **result;
     void **next;
-    u2 avbl, avbl_new;
+    u2 avbl = block_size(now);
+    u2 avbl_new;
     while(now != NULL)
     {
         //todo prepojenie blokov pre vacsiu avbl velkost
-        if(*((char *) now - 1) & 0x80)
-            avbl = *((u2 *) now - 1) & (u2) 0x7fff;
-        else
-            avbl = (u2) *((char *) now - 1);
+//        if(*((char *) now - 1) & 0x80)
+//            avbl = *((u2 *) now - 1) & (u2) 0x7fff;
+//        else
+//            avbl = (u2) *((char *) now - 1);
 
         if(avbl >= size)
         {
@@ -129,7 +132,18 @@ void *memory_alloc(unsigned int size)
             }
             return result;
         } else
+        {
+            u2 blk_sz = block_size(*now);
+            u2 add = (blk_sz > 0x7f ? (u2)2 : (u2)1);
+            if(*now != NULL && ((char *)(*now) - (char *)now) == (avbl + add) )
+            {
+                avbl += (blk_sz + add);
+                *now = **(void ***)now;
+                continue;
+            }
             now = *now;
+            avbl = block_size(now);
+        }
     }
     return NULL;
 }
