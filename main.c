@@ -8,7 +8,7 @@
 #define u4 unsigned int
 #define u8 unsigned long long
 
-void **head;
+void *head;
 
 void *block_header(void *ptr, int size)
 {
@@ -200,37 +200,23 @@ int memory_free(void *valid_ptr)
 
 void memory_init(void *ptr, unsigned int size)
 {
-    head = (void **) ((char *) (ptr + 1));
-    void **now = *head = (void **) ((char *) ptr + 1);
-    void **tmp = now;
-    void **footer = ((void **) ((char *) ptr + size));
-    //*footer = NULL;
+    head = ptr;
+    void **now = &head;
 
-    printf("diff: %u\n", (u4) ((char *) (footer) - (char *) now));
-
-    u8 ptr_diff;
-    while(now != NULL)
+    while(*now != NULL)
     {
-        ptr_diff = ((char *) footer - (char *) now);
-        if(ptr_diff <= 0x7fff)
+        if(size > 0xffff)
         {
-            if(ptr_diff < 0x80)
-            {
-                *((char *) now - 1) = (char) ptr_diff;
-            } else
-            {
-                now = (void **) ((char *) now + 1);
-                *tmp = now;
-                *((u2 *) now - 1) = (u2) ((ptr_diff - 1) | 0x8000);
-            }
-            *now = NULL;
-            return;
+            size -= 0xfff6;
+            *now = block_header(*now, 0xfff6);
+            now = *now;
+            *now = ((char *)now + 0xfff6);
         } else
         {
-            *((u2 *) now - 2) = (u2) 0x7fff;
-            *now = (u1 *) now + 0x8000;
-            tmp = now;
+            *now = block_header(*now, size);
             now = *now;
+            *now = NULL;
+            return;
         }
     }
 }
