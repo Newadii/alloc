@@ -136,6 +136,31 @@ void *memory_alloc(unsigned int size)
 
 int memory_free(void *valid_ptr)
 {
+    if(head == NULL)
+    {
+        head = valid_ptr;
+        return 0;
+    }
+    void **now = head;
+    while(now != 0)
+    {
+        if(now < (void **)valid_ptr)
+        {
+            if(*now > valid_ptr || *now == NULL)
+            {
+                *(void **)valid_ptr = *now;
+                *now = valid_ptr;
+                return 0;
+            } else
+                now = *now;
+        } else
+        {
+            *(void **)valid_ptr = now;
+            head = valid_ptr;
+            return 0;
+        }
+    }
+
     return 1;
 }
 
