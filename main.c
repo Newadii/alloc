@@ -10,6 +10,24 @@
 
 void **head;
 
+void *block_header(void *ptr, int size)
+{
+    if(size > 0xffff)
+        return NULL;
+    if(size < 0x80)
+    {
+        *(char *)ptr = (char)size;
+        return (char *)ptr + 1;
+    }
+    if(size < 0x8000)
+    {
+        *(u2 *)ptr = (u2)size | (u2)0x8000;
+        return (char *)ptr + 2;
+    }
+    *(u2 *)ptr = (u2)(size << 16);
+    return (char *)ptr + 3;
+}
+
 u2 block_size(void* now)
 {
     if(*((char *) now - 1) & 0x80)
@@ -184,7 +202,7 @@ void memory_init(void *ptr, unsigned int size)
     void **now = *head = (void **) ((char *) ptr + 1);
     void **tmp = now;
     void **footer = ((void **) ((char *) ptr + size));
-    *footer = NULL;
+    //*footer = NULL;
 
     printf("diff: %u\n", (u4) ((char *) (footer) - (char *) now));
 
@@ -220,11 +238,11 @@ int main()
 {
     int x = 10;
     int allc = 50;
-    unsigned char region[allc];
+    unsigned long region[12500];
     for(int i = 0; i < allc; i++)
         region[i] = 110;
 
-    memory_init(region, allc);
+    memory_init(region, 100000);
     char *pointer = (char *) memory_alloc(8);
     char *pointer2 = (char *) memory_alloc(10);
     char *pointer3 = (char *) memory_alloc(24);
