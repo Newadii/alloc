@@ -10,21 +10,31 @@
 
 void *head;
 
+u2 ptr_shift(u2 size)
+{
+    if(size >= 0x8000)
+        return 3;
+    if(size >= 0x80)
+        return 2;
+    return 1;
+}
+
 void *block_header(void *ptr, int size)
 {
     if(size > 0xffff)
         return NULL;
-    if(size < 0x80)
+    if(size < 0x81)
     {
-        *(char *)ptr = (char)size;
+        *(char *)ptr = (char)(size - 1);
         return (char *)ptr + 1;
     }
-    if(size < 0x8000)
+    if(size < 0x8002)
     {
-        *(u2 *)ptr = (u2)size | (u2)0x8000;
+        *(u2 *)ptr = (u2)(size - 2) | (u2)0x8000;
         return (char *)ptr + 2;
     }
-    *(u2 *)ptr = (u2)(size << 16);
+    *(u2 *)ptr = (u2)(size - 3);
+    *((char *)ptr + 2) = 0x00;
     return (char *)ptr + 3;
 }
 
@@ -35,7 +45,7 @@ u2 block_size(void* ptr)
     else if(*((char *) ptr - 1) != 0)
         return (u2) *((char *) ptr - 1);
     else
-        return (u2) *((char *)ptr - 3);
+        return *(u2 *)((char *)(ptr - 3));
 }
 
 int memory_check(void *ptr)
@@ -57,6 +67,26 @@ int memory_check(void *ptr)
         now = *now;
     }
     return 0;
+}
+
+void *memory_alloc2(unsigned int size)
+{
+    void **now = &head;
+    u2 avbl = block_size(*now);
+
+    while(*now != NULL)
+    {
+        if(avbl >= size)
+        {
+            void **next = **(void ***)now;
+            u2 shift = ptr_shift(avbl);
+            void **result = block_header(((char *)now - shift), size);
+            u2 new_avbl = avbl + shift - (u2)size - ptr_shift((u2)size);
+            *now = block_header(((char *)result + size), new_avbl);
+            **(void ***)now = next;
+        }
+    }
+
 }
 
 void *memory_alloc(unsigned int size)
@@ -203,6 +233,8 @@ void memory_init(void *ptr, unsigned int size)
     head = ptr;
     void **now = &head;
 
+    u2 debug;
+
     while(*now != NULL)
     {
         if(size > 0xffff)
@@ -210,11 +242,13 @@ void memory_init(void *ptr, unsigned int size)
             size -= 0xfff6;
             *now = block_header(*now, 0xfff6);
             now = *now;
+            debug = block_size(now);
             *now = ((char *)now + 0xfff6);
         } else
         {
             *now = block_header(*now, size);
             now = *now;
+            debug = block_size(now);
             *now = NULL;
             return;
         }
@@ -226,11 +260,11 @@ int main()
 {
     int x = 10;
     int allc = 50;
-    unsigned long region[12500];
+    unsigned char region[100000];
     for(int i = 0; i < allc; i++)
-        region[i] = 110;
+        region[i] = 0x99;
 
-    memory_init(region, 100000);
+    memory_init(region, 0x12);
     char *pointer = (char *) memory_alloc(8);
     char *pointer2 = (char *) memory_alloc(10);
     char *pointer3 = (char *) memory_alloc(24);
