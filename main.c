@@ -144,7 +144,6 @@ int memory_check(void *ptr)
     if(head == NULL || ptr < head)
         return 1;
     void **now = head;
-    void **tmp = NULL;
     while(now != NULL)
     {
         if(ptr < *now)
