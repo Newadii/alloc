@@ -21,7 +21,7 @@ u2 ptr_shift(u2 size)
 
 void *block_header(void *ptr, int size)
 {
-    if(size > 0xffff || size < 9)
+    if(size > 0xffff)
         return NULL;
     if(size < 0x81)
     {
@@ -91,15 +91,20 @@ void *memory_alloc(unsigned int size)
         if(avbl >= size + ptr_shift((u2)size))
         {
             void **next = **(void ***)now;
+            void **prev = *now;
             u2 new_avbl = avbl - (u2)size - ptr_shift((u2)size);
+
             if(new_avbl < 9)
+            {
                 size += new_avbl - ptr_shift((u2)size+new_avbl);
-            void **result = block_header(((char *)(*now) - shift), size + ptr_shift((u2)size));
-            *now = block_header(((char *)result + size), new_avbl);
-            if(*now == NULL)
                 *now = next;
+            }
             else
+            {
+                *now = block_header(((char *)(*now) + size), new_avbl);
                 **(void ***)now = next;
+            }
+            void **result = block_header(((char *)(prev) - shift), size + ptr_shift((u2)size));
             return result;
         } else if(can_merge(*now))
         {
@@ -129,13 +134,13 @@ int memory_free(void *valid_ptr)
             if(**(void ***)now > valid_ptr || **(void ***)now == NULL)
             {
                 *(void **)valid_ptr = **(void ***)now;
-                *now = valid_ptr;
+                **(void ***)now = valid_ptr;
                 return 0;
             } else
                 now = *now;
         } else
         {
-            *(void **)valid_ptr = **(void ***)now;
+            *(void **)valid_ptr = *now;
             *now = valid_ptr;
             return 0;
         }
@@ -187,36 +192,26 @@ void memory_init(void *ptr, unsigned int size)
 int main()
 {
     int x = 10;
-    int allc = 50;
-    unsigned char region[100000];
+    int allc = 100;
+    unsigned char region[allc];
     for(int i = 0; i < allc; i++)
         region[i] = 0x99;
 
-    memory_init(region, 100);
-    char *pointer = (char *)memory_alloc(10);
-    if(pointer)
-        memset(pointer, 120, 10);
-    memory_check(pointer);
-    char *pointer2 = (char *)memory_alloc(10);
-    char *pointer3 = (char *)memory_alloc(10);
-    char *pointer4 = (char *)memory_alloc(13);
-    memory_check(pointer2);
+    memory_init(region, allc);
+    char *pointer = (char *)memory_alloc(8);
+    char *pointer2 = (char *)memory_alloc(8);
+    char *pointer3 = (char *)memory_alloc(8);
+    char *pointer4 = (char *)memory_alloc(8);
+    char *pointer5 = (char *)memory_alloc(8);
+    char *pointer6 = (char *)memory_alloc(8);
     memory_free(pointer2);
-    memory_check(pointer2);
+    memory_free(pointer3);
+    memory_free(pointer5);
 
-    if(pointer)
-        memset(pointer, 120, 8);
-    if(pointer2)
-        memset(pointer2, 120, 10);
-    if(pointer3)
-        memset(pointer3, 120, 24);
-    if(pointer4)
-        memset(pointer4, 120, 13);
-    else
-        printf("Hello NULL\n");
+    pointer2 = (char *)memory_alloc(8);
+    pointer3 = (char *)memory_alloc(8);
+    pointer5 = (char *)memory_alloc(8);
 
-    printf("mem check: %d\n", memory_check(pointer));
-//    if(pointer)
-//        memory_free(pointer);
+
     return 0;
 }
