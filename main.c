@@ -38,42 +38,21 @@ void *block_header(void *ptr, int size)
     return (char *)ptr + 3;
 }
 
-u2 block_size(void* ptr)
+u2 block_size(void *ptr)
 {
-    if(*((char *) ptr - 1) & 0x80)
-        return *((u2 *) ptr - 1) & (u2) 0x7fff;
-    else if(*((char *) ptr - 1) != 0)
-        return (u2) *((char *) ptr - 1);
+    if(*((char *)ptr - 1) & 0x80)
+        return *((u2 *)ptr - 1) & (u2)0x7fff;
+    else if(*((char *)ptr - 1) != 0)
+        return (u2)*((char *)ptr - 1);
     else
         return *(u2 *)((char *)(ptr - 3));
-}
-
-int memory_check(void *ptr)
-{
-    if(head == NULL)
-        return 1;
-    void **now = head;
-    void **tmp = NULL;
-    while(now != NULL)
-    {
-        if(ptr < (void *)now)
-        {
-            if(tmp == NULL)
-                return 1;
-            if(ptr > (void *)((char *) tmp + block_size(tmp)))
-                return 1;
-        }
-        tmp = now;
-        now = *now;
-    }
-    return 0;
 }
 
 int can_merge(void **ptr)
 {
     if(*ptr == NULL)
         return 0;
-    if( (block_size(ptr) + ptr_shift(block_size(*ptr))) == (*ptr - (void *)ptr) )
+    if((block_size(ptr) + ptr_shift(block_size(*ptr))) == (*ptr - (void *)ptr))
         return 1;
     return 0;
 }
@@ -95,7 +74,7 @@ void *merge(void **ptr)
     {
         void **next = *ptr;
         ptr = block_header(ptr - ptr_shft, 0xfff6);
-        *ptr = block_header( (char *)ptr + (u2)0xfff6, new_avbl - (u2)0xfff6 - ptr_shift((u2)(new_avbl - 0xfff6)) );
+        *ptr = block_header((char *)ptr + (u2)0xfff6, new_avbl - (u2)0xfff6 - ptr_shift((u2)(new_avbl - 0xfff6)));
         **(void ***)ptr = next;
         return ptr;
     }
@@ -135,6 +114,7 @@ int memory_free(void *valid_ptr)
     if(head == NULL)
     {
         head = valid_ptr;
+        *(void **)head = NULL;
         return 0;
     }
     void **now = head;
@@ -156,7 +136,24 @@ int memory_free(void *valid_ptr)
             return 0;
         }
     }
+    return 1;
+}
 
+int memory_check(void *ptr)
+{
+    if(head == NULL || ptr < head)
+        return 1;
+    void **now = head;
+    void **tmp = NULL;
+    while(now != NULL)
+    {
+        if(ptr < *now)
+        {
+            if(ptr < (void *)((char *)now + block_size(now)) )
+                return 0;
+        }
+        now = *now;
+    }
     return 1;
 }
 
@@ -164,8 +161,6 @@ void memory_init(void *ptr, unsigned int size)
 {
     head = ptr;
     void **now = &head;
-
-    u2 debug;
 
     while(*now != NULL)
     {
@@ -195,10 +190,10 @@ int main()
         region[i] = 0x99;
 
     memory_init(region, 100000);
-    char *pointer = (char *) memory_alloc(8);
-    char *pointer2 = (char *) memory_alloc(10);
-    char *pointer3 = (char *) memory_alloc(24);
-    char *pointer4 = (char *) memory_alloc(13);
+    char *pointer = (char *)memory_alloc(8);
+    char *pointer2 = (char *)memory_alloc(10);
+    char *pointer3 = (char *)memory_alloc(24);
+    char *pointer4 = (char *)memory_alloc(13);
 
     if(pointer)
         memset(pointer, 120, 8);
