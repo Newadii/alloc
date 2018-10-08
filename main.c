@@ -52,7 +52,7 @@ int can_merge(void **ptr)
 {
     if(*ptr == NULL)
         return 0;
-    if((block_size(ptr) + ptr_shift(block_size(*ptr))) == (*ptr - (void *)ptr))
+    if(*ptr == (char *)ptr + block_size(ptr) + ptr_shift(block_size(*ptr)))
         return 1;
     return 0;
 }
