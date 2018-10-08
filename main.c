@@ -69,7 +69,39 @@ int memory_check(void *ptr)
     return 0;
 }
 
-void *memory_alloc2(unsigned int size)
+int can_merge(void **ptr)
+{
+    if(*ptr == NULL)
+        return 0;
+    if( (block_size(ptr) + ptr_shift(block_size(*ptr))) == (*ptr - (void *)ptr) )
+        return 1;
+    return 0;
+}
+
+void *merge(void **ptr)
+{
+    u2 ptr_size = block_size(ptr);
+    u2 pptr_size = block_size(*ptr);
+    int ptr_shft = ptr_shift(ptr_size);
+    int pptr_shft = ptr_shift(pptr_size);
+
+    int new_avbl = ptr_size + pptr_size + ptr_shft + pptr_shft;
+    new_avbl -= ptr_shift(new_avbl > 0xffff ? (u2)0xffff : (u2)new_avbl);
+
+    if(new_avbl <= 0xffff)
+    {
+        return block_header((char *)ptr - ptr_shift(block_size(ptr)), new_avbl);
+    } else
+    {
+        void **next = *ptr;
+        ptr = block_header(ptr - ptr_shft, 0xfff6);
+        *ptr = block_header( (char *)ptr + (u2)0xfff6, new_avbl - (u2)0xfff6 - ptr_shift((u2)(new_avbl - 0xfff6)) );
+        **(void ***)ptr = next;
+        return ptr;
+    }
+}
+
+void *memory_alloc(unsigned int size)
 {
     void **now = &head;
     u2 avbl = block_size(*now);
@@ -84,12 +116,21 @@ void *memory_alloc2(unsigned int size)
             u2 new_avbl = avbl + shift - (u2)size - ptr_shift((u2)size);
             *now = block_header(((char *)result + size), new_avbl);
             **(void ***)now = next;
+            return result;
+        } else if(can_merge(*now))
+        {
+            *now = merge(*now);
+            avbl = block_size(*now);
+            continue;
+        } else
+        {
+            now = *now;
         }
     }
-
+    return NULL;
 }
 
-void *memory_alloc(unsigned int size)
+void *memory_alloc2(unsigned int size)
 {
     if(head == NULL)
         return NULL;
@@ -240,15 +281,13 @@ void memory_init(void *ptr, unsigned int size)
         if(size > 0xffff)
         {
             size -= 0xfff6;
-            *now = block_header(*now, 0xfff6);
+            *now = block_header(*now, 0xfff3);
             now = *now;
-            debug = block_size(now);
-            *now = ((char *)now + 0xfff6);
+            *now = ((char *)now + 0xfff3);
         } else
         {
             *now = block_header(*now, size);
             now = *now;
-            debug = block_size(now);
             *now = NULL;
             return;
         }
@@ -264,7 +303,7 @@ int main()
     for(int i = 0; i < allc; i++)
         region[i] = 0x99;
 
-    memory_init(region, 0x12);
+    memory_init(region, 100000);
     char *pointer = (char *) memory_alloc(8);
     char *pointer2 = (char *) memory_alloc(10);
     char *pointer3 = (char *) memory_alloc(24);
