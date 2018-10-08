@@ -121,22 +121,22 @@ int memory_free(void *valid_ptr)
         *(void **)head = NULL;
         return 0;
     }
-    void **now = head;
-    while(now != 0)
+    void **now = &head;
+    while(*now != NULL)
     {
-        if(now < (void **)valid_ptr)
+        if(*now < valid_ptr)
         {
-            if(*now > valid_ptr || *now == NULL)
+            if(**(void ***)now > valid_ptr || **(void ***)now == NULL)
             {
-                *(void **)valid_ptr = *now;
+                *(void **)valid_ptr = **(void ***)now;
                 *now = valid_ptr;
                 return 0;
             } else
                 now = *now;
         } else
         {
-            *(void **)valid_ptr = now;
-            head = valid_ptr;
+            *(void **)valid_ptr = **(void ***)now;
+            *now = valid_ptr;
             return 0;
         }
     }
