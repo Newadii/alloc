@@ -104,7 +104,7 @@ void *memory_alloc(unsigned int size)
             }
             else
             {
-                *now = block_header( ((char *)(*now) + size), new_avbl );
+                *now = block_header( ((char *)(*now) - shift + size), new_avbl );
                 **(void ***)now = next;
             }
             void **result = block_header(((char *)(prev) - shift), size);
@@ -207,13 +207,16 @@ int main()
     memory_init(region, allc);
     char *pointer = (char *)memory_alloc(9);
     char *pointer2 = (char *)memory_alloc(8);
-    memory_free(pointer);
-    pointer = (char *)memory_alloc(8);
-    can_merge((void *)pointer);
-
     char *pointer3 = (char *)memory_alloc(8);
     char *pointer4 = (char *)memory_alloc(8);
     char *pointer5 = (char *)memory_alloc(8);
+    memory_free(pointer);
+    memory_free(pointer2);
+    memory_free(pointer3);
+    memory_free(pointer4);
+    pointer = (char *)memory_alloc(50);
+
+
     char *pointer6 = (char *)memory_alloc(8);
     memory_free(pointer2);
     memory_free(pointer3);
